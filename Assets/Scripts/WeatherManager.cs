@@ -8,6 +8,7 @@ public class WeatherManager : MonoBehaviour
 
     [Header("Lighting")]
     public Light domeLamp;
+    public Light directionalLight;
 
     [Header("Particles")]
     public ParticleSystem rainParticles;
@@ -24,22 +25,30 @@ public class WeatherManager : MonoBehaviour
     public Transform cactus;
     public Transform tomato;
 
-    // Original scales so we can animate back
-    private Vector3 cactusOriginalScale;
-    private Vector3 tomatoOriginalScale;
+    [Header("Scene Details")]
+    public GameObject snowLayer;
 
-    // Light colors
+    // Light colors per weather
     private Color sunnyColor = new Color(1f,   0.95f, 0.6f);
     private Color rainyColor = new Color(0.4f, 0.6f,  1f);
     private Color snowyColor = new Color(0.8f, 0.9f,  1f);
     private Color stormColor = new Color(0.5f, 0.3f,  0.8f);
 
+    // Original plant scales
+    private Vector3 cactusOriginalScale;
+    private Vector3 tomatoOriginalScale;
+
+    // Lightning
+    private bool isStormy = false;
+    private float lightningTimer = 0f;
+
     void Start()
     {
+        // Save original plant sizes
         if (cactus != null) cactusOriginalScale = cactus.localScale;
         if (tomato != null) tomatoOriginalScale  = tomato.localScale;
 
-        // Start with sunny weather
+        // Start sunny
         SetWeather(WeatherState.Sunny);
     }
 
@@ -50,6 +59,18 @@ public class WeatherManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Alpha2)) SetWeather(WeatherState.Rainy);
         if (Input.GetKeyDown(KeyCode.Alpha3)) SetWeather(WeatherState.Snowy);
         if (Input.GetKeyDown(KeyCode.Alpha4)) SetWeather(WeatherState.Stormy);
+
+        // Lightning countdown during storm
+        if (isStormy)
+        {
+            lightningTimer -= Time.deltaTime;
+            if (lightningTimer <= 0f)
+            {
+                StartCoroutine(LightningFlash());
+                // Next flash in 3 to 7 seconds randomly
+                lightningTimer = Random.Range(3f, 7f);
+            }
+        }
     }
 
     public void SetWeather(WeatherState newWeather)
@@ -62,34 +83,43 @@ public class WeatherManager : MonoBehaviour
         switch (currentWeather)
         {
             case WeatherState.Sunny:
+                isStormy = false;
                 ApplyLightColor(sunnyColor, 5f);
                 PlaySound(sunnySound);
-                // Plants grow bigger (happy)
                 SetPlantScale(1.2f);
+                SetSkybox(new Color(0.5f, 0.7f, 1f));
+                if (snowLayer != null) snowLayer.SetActive(false);
                 break;
 
             case WeatherState.Rainy:
+                isStormy = false;
                 ApplyLightColor(rainyColor, 3f);
                 PlaySound(rainySound);
                 StartParticles(rainParticles);
-                // Plants droop slightly (normal)
                 SetPlantScale(1f);
+                SetSkybox(new Color(0.4f, 0.4f, 0.5f));
+                if (snowLayer != null) snowLayer.SetActive(false);
                 break;
 
             case WeatherState.Snowy:
+                isStormy = false;
                 ApplyLightColor(snowyColor, 3.5f);
                 PlaySound(snowySound);
                 StartParticles(snowParticles);
-                // Plants shrink (cold)
                 SetPlantScale(0.85f);
+                SetSkybox(new Color(0.85f, 0.9f, 0.95f));
+                if (snowLayer != null) snowLayer.SetActive(true);
                 break;
 
             case WeatherState.Stormy:
+                isStormy = true;
+                lightningTimer = Random.Range(1f, 3f); // first flash soon
                 ApplyLightColor(stormColor, 2f);
                 PlaySound(stormySound);
-                StartParticles(rainParticles); // heavy rain
-                // Plants shrink a lot (scared!)
+                StartParticles(rainParticles);
                 SetPlantScale(0.7f);
+                SetSkybox(new Color(0.2f, 0.2f, 0.25f));
+                if (snowLayer != null) snowLayer.SetActive(false);
                 break;
         }
 
@@ -100,9 +130,11 @@ public class WeatherManager : MonoBehaviour
 
     private void ApplyLightColor(Color color, float intensity)
     {
-        if (domeLamp == null) return;
-        domeLamp.color     = color;
-        domeLamp.intensity = intensity;
+        if (domeLamp != null)
+        {
+            domeLamp.color     = color;
+            domeLamp.intensity = intensity;
+        }
     }
 
     private void StopAllParticles()
@@ -129,5 +161,41 @@ public class WeatherManager : MonoBehaviour
             cactus.localScale = cactusOriginalScale * multiplier;
         if (tomato != null)
             tomato.localScale = tomatoOriginalScale * multiplier;
+    }
+
+    private void SetSkybox(Color color)
+    {
+        if (RenderSettings.skybox == null) return;
+        RenderSettings.skybox.SetColor("_SkyTint", color);
+        RenderSettings.skybox.SetColor("_GroundColor", color * 0.5f);
+        DynamicGI.UpdateEnvironment();
+    }
+
+    private System.Collections.IEnumerator LightningFlash()
+    {
+        if (directionalLight == null) yield break;
+
+        // Save original values
+        Color originalColor     = directionalLight.color;
+        float originalIntensity = directionalLight.intensity;
+
+        // First flash
+        directionalLight.color     = Color.white;
+        directionalLight.intensity = 8f;
+        yield return new WaitForSeconds(0.05f);
+
+        // Brief dark
+        directionalLight.color     = originalColor;
+        directionalLight.intensity = originalIntensity;
+        yield return new WaitForSeconds(0.05f);
+
+        // Second flash
+        directionalLight.color     = Color.white;
+        directionalLight.intensity = 6f;
+        yield return new WaitForSeconds(0.03f);
+
+        // Back to normal
+        directionalLight.color     = directionalLight.color;
+        directionalLight.intensity = originalIntensity;
     }
 }
