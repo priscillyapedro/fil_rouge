@@ -36,7 +36,6 @@ public class WeatherManager : MonoBehaviour
 
     void Start()
     {
-        // Save the original plant sizes
         if (cactus != null) cactusOriginalScale = cactus.localScale;
         if (tomato != null) tomatoOriginalScale  = tomato.localScale;
 
