@@ -8,38 +8,41 @@ public class PlantInteractable : MonoBehaviour
     [Header("UI")]
     public GameObject weatherInfoPanel;
     public TextMeshProUGUI weatherText;
+    public GameObject weatherSwitchMenu;
 
     [Header("Weather Manager")]
     public WeatherManager weatherManager;
 
-    private XRGrabInteractable grabInteractable;
+    private XRBaseInteractable interactable;
 
     void Start()
     {
-        grabInteractable = GetComponent<XRGrabInteractable>();
+        interactable = GetComponent<XRBaseInteractable>();
 
-        if (grabInteractable != null)
+        if (interactable == null)
         {
-            grabInteractable.selectEntered.AddListener(OnGrab);
-            grabInteractable.selectExited.AddListener(OnRelease);
+            // Add an XRSimpleInteractable so the object can be selected
+            interactable = gameObject.AddComponent<XRSimpleInteractable>();
         }
+
+        interactable.selectEntered.AddListener(OnSelect);
 
         if (weatherInfoPanel != null)
             weatherInfoPanel.SetActive(false);
+
+        if (weatherSwitchMenu != null)
+            weatherSwitchMenu.SetActive(false);
     }
 
-    private void OnGrab(SelectEnterEventArgs args)
+    private void OnSelect(SelectEnterEventArgs args)
     {
         if (weatherInfoPanel != null)
             weatherInfoPanel.SetActive(true);
 
-        UpdateWeatherText();
-    }
+        if (weatherSwitchMenu != null)
+            weatherSwitchMenu.SetActive(true);
 
-    private void OnRelease(SelectExitEventArgs args)
-    {
-        if (weatherInfoPanel != null)
-            weatherInfoPanel.SetActive(false);
+        UpdateWeatherText();
     }
 
     private void UpdateWeatherText()
